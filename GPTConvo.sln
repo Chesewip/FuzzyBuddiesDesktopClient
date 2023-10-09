@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "GPTConvo", "GPTConvo\GPTConvo.pyproj", "{944C2C54-CB06-4D47-AC50-3950BCB9C317}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{944C2C54-CB06-4D47-AC50-3950BCB9C317}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{944C2C54-CB06-4D47-AC50-3950BCB9C317}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {897ACC46-B8C0-4628-BCA1-70F4436078BB}
+	EndGlobalSection
+EndGlobal
