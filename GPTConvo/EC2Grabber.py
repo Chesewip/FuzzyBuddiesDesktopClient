@@ -21,8 +21,8 @@ class EC2Grabber:
         self.current_ports = [8000,8001]
 
 
-    #def __del__(self):
-     #   self.stopFuzzyBuddies()
+    def __del__(self):
+        self.stopFuzzyBuddies()
 
 # -----------------------------------------------------------------------------------------
 

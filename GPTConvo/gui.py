@@ -128,6 +128,10 @@ class App:
         self.refresh_thread = threading.Thread(target=self.auto_refresh_status, daemon=True)
         self.refresh_thread.start()
 
+        
+        poll_thread = threading.Thread(target=self.ec2.pollForResult, kwargs={'interval' : 1}, daemon=True)
+        poll_thread.start()
+
         self.refresh_status();
 
 
@@ -167,7 +171,7 @@ class App:
     def on_close(self):
         self.refresh_thread_running = False
         # Perform hard reset before closing the window
-        #self.ec2.stopFuzzyBuddies()
+        self.ec2.stopFuzzyBuddies()
         self.root.destroy()
 
     def update_output(self, line, includeNewLine = False):
