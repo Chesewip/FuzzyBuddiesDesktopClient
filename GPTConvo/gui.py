@@ -233,8 +233,8 @@ class App:
             self.disconnect_ec2_button.config(state = "disabled")
 
     def update_voice_cloner_status(self):
-        vc1Status = self.ec2.getVoiceClonerStatus(8000);
-        vc2Status = self.ec2.getVoiceClonerStatus(8001);
+        vc1Status = self.ec2.getVoiceClonerStatus(self.ec2.current_ports[0]);
+        vc2Status = self.ec2.getVoiceClonerStatus(self.ec2.current_ports[1]);
         vc1String = "VC1 : ALIVE" if vc1Status else "VC1 : DEAD"
         vc2String = "VC2 : ALIVE" if vc2Status else "VC2 : DEAD"
         self.vc_label.config(text=f"Voice cloner status : {vc1String} , {vc2String}")

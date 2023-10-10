@@ -18,6 +18,7 @@ class EC2Grabber:
         self.openSSHConnection(0)
         self.should_run_fuzzy_buddies = False
         self.should_poll_ec2 = False
+        self.current_ports = [8000,8001]
 
 
     #def __del__(self):
@@ -110,6 +111,10 @@ class EC2Grabber:
 # -----------------------------------------------------------------------------------------
 
     def start(self):
+
+        gitcommand = 'cd /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2 && git pull origin master'
+        _, stdout, stderr = self.ssh.exec_command(gitcommand, get_pty=True)
+
         self.should_run_fuzzy_buddies = True
         self.should_poll_ec2 = True
         # Run the command in a new thread to avoid freezing the GUI
@@ -119,20 +124,28 @@ class EC2Grabber:
     def stopFuzzyBuddies(self):
         # Kill the gradio web interface
         try:
-            _, stdout, stderr = self.ssh.exec_command('pgrep -f "python3 /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2/GPTConvoEC2/Main.py"')
+            _, stdout, stderr = self.ssh.exec_command('pgrep -f "python3 /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2/GPTConvoEC2/Main.py"', get_pty = True)
             pid = stdout.read().decode().strip()
 
             _, stdout, stderr = self.ssh.exec_command(f'kill -USR1 {pid}')
             self.should_run_fuzzy_buddies = False
+            print(stdout.read().decode())
+            self.output_callback(stdout.read().decode())
+            for i in range(len(self.current_ports)):
+                self.current_ports[i] += 2
+                if self.current_ports[i] > 8009:
+                    self.current_ports[i] -= 9
+
             return stdout.read().decode(), stderr.read().decode()
         except:
             return "Could not shutdown fuzzy buddies. Maybe its alive."
 
     def restartFuzzyBuddies(self):
         if self.isFuzzyBuddiesRunning():
-            self.stopFuzzyBuddies()
-            time.sleep(10)  # Wait for a few seconds to ensure the process is terminated
-
+            output, errorText = self.stopFuzzyBuddies()
+            self.output_callback(output)
+            
+        time.sleep(10)  # Wait for a few seconds to ensure the process is terminated
         self.start()
 
     def isFuzzyBuddiesRunning(self):
@@ -152,7 +165,9 @@ class EC2Grabber:
 
 
     def _start_thread(self):
-        _, stdout, stderr = self.ssh.exec_command('source /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2/GPTConvoEC2/venv/bin/activate && python3 /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2/GPTConvoEC2/Main.py', get_pty=True)
+        port1 = self.current_ports[0]
+        port2 = self.current_ports[1]
+        _, stdout, stderr = self.ssh.exec_command(f'source /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2/GPTConvoEC2/venv/bin/activate && python3 /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2/GPTConvoEC2/Main.py {port1} {port2}', get_pty=True)
         while self.should_run_fuzzy_buddies:
             try:
                 for line in iter(stdout.readline, ""):
