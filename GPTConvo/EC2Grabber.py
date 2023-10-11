@@ -5,6 +5,15 @@ import requests
 import threading
 import select
 
+class StatusPacket:
+    def __init__(self, ec2Status, connectionStatus, fuzzyBuddiesStatus, voiceCloner1Status,voiceCloner2Status):
+        self.ec2Status = ec2Status
+        self.connectionStatus = connectionStatus
+        self.fuzzyBuddiesStatus = fuzzyBuddiesStatus
+        self.voiceCloner1Status = voiceCloner1Status
+        self.voiceCloner2Status = voiceCloner2Status
+
+
 class EC2Grabber:
 
     def __init__(self, keyFile, remoteDir, outputDir, output_callback= None):
@@ -19,10 +28,25 @@ class EC2Grabber:
         self.should_run_fuzzy_buddies = False
         self.should_poll_ec2 = False
         self.current_ports = [8000,8001]
+        self.waiting_for_restart = False;
+        self.auto_running = False;
+        self.refresh_time = 15;
 
+        # Getting the status of all the system/processes
+        self.update_status_packet();
 
     def __del__(self):
         self.stopFuzzyBuddies()
+
+# -----------------------------------------------------------------------------------------
+
+    def start_auto_run(self):
+        self.auto_running = True;
+        self.status_thread = threading.Thread(target=self.auto_refresh_status, daemon=True)
+        self.status_thread.start()
+
+    def stop_auto_run(self):
+        self.auto_running = False;
 
 # -----------------------------------------------------------------------------------------
 
@@ -57,6 +81,8 @@ class EC2Grabber:
         return message
 
     def stopEC2(self):
+        self.stopFuzzyBuddies();
+        self.closeSSHConnection();
         url = "https://4w5a7ay9j4.execute-api.us-west-1.amazonaws.com/prod/ec2Start"
         payload = {
             "action": "stop"
@@ -68,10 +94,26 @@ class EC2Grabber:
             return "Successfully Stopped EC2"
         return message;
 
+    def restart_ec2(self):
+        self.stopEC2();
+        
+
+    #def _poll_for_stopped_status():
+
+
+
 # -----------------------------------------------------------------------------------------
 
+    def start_polling(self):
+        poll_thread = threading.Thread(target=self.pollForResult, kwargs={'interval' : 1}, daemon=True)
+        self.should_poll_ec2 = True;
+        poll_thread.start()
+
+    def stop_polling(self):
+        self.should_poll_ec2 = False;
+
     def pollForResult(self, interval=2):
-        while True:
+        while self.should_poll_ec2:
             try:
                 file_list = self.sftp.listdir(self.remoteDir)
                 zip_files = [file for file in file_list if file.endswith('.zip')]
@@ -85,10 +127,6 @@ class EC2Grabber:
             except Exception as e:
                 print(f"Error occurred: {e}")
                 time.sleep(interval * 2)
-                #if self.getOpenSSHStatus() is False:
-                 #   break
-                #self.closeSSHConnection();    
-                #break  # or re-raise the exception if you want the thread to terminate
 
     def getVoiceResults(self, zip_files):
         if not os.path.exists(self.outputDir):
@@ -99,10 +137,10 @@ class EC2Grabber:
 
             # Check the file size
             file_stat = self.sftp.stat(remote_file_path)
-#            if file_stat.st_size < 1000000:  # less than 1000 KB
- #               print(f"Deleting small file: {zip_file}")
-  #              self.sftp.remove(remote_file_path)
-   #             continue  # skip the current iteration
+            if file_stat.st_size < 1000000:  # less than 1000 KB
+                print(f"Deleting small file: {zip_file}")
+                self.sftp.remove(remote_file_path)
+                continue  # skip the current iteration
 
             local_file_path = os.path.join(self.outputDir, zip_file)
             self.sftp.get(remote_file_path, local_file_path)
@@ -110,7 +148,7 @@ class EC2Grabber:
 
 # -----------------------------------------------------------------------------------------
 
-    def start(self):
+    def startFuzzyBuddies(self):
 
         gitcommand = 'cd /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2 && git pull origin master'
         _, stdout, stderr = self.ssh.exec_command(gitcommand, get_pty=True)
@@ -131,10 +169,7 @@ class EC2Grabber:
             self.should_run_fuzzy_buddies = False
             print(stdout.read().decode())
             self.output_callback(stdout.read().decode())
-            for i in range(len(self.current_ports)):
-                self.current_ports[i] += 2
-                if self.current_ports[i] > 8009:
-                    self.current_ports[i] -= 9
+            self.increase_current_ports();
 
             return stdout.read().decode(), stderr.read().decode()
         except:
@@ -144,9 +179,11 @@ class EC2Grabber:
         if self.isFuzzyBuddiesRunning():
             output, errorText = self.stopFuzzyBuddies()
             self.output_callback(output)
+        else:
+            self.increase_current_ports();
             
-        time.sleep(10)  # Wait for a few seconds to ensure the process is terminated
-        self.start()
+        time.sleep(5)  # Wait for a few seconds to ensure the process is terminated
+        self.startFuzzyBuddies()
 
     def isFuzzyBuddiesRunning(self):
         try:
@@ -217,11 +254,16 @@ print(is_gradio_alive("{url}"))
 
 # -----------------------------------------------------------------------------------------
 
-    def openSSHConnection(self, retries = 0):
+    def openSSHConnection(self, retries = 0, restart_ec2_on_failure = False):
 
         if retries < 0:
             print("Couldn't connect to EC2")
             self.ec2ConnectionStatus = False;
+
+            #If the EC2 is running, and after several retries we still couldn't connect, restart the ec2
+            if self.status_packet.ec2Status == "running" and self.auto_running:
+                self.stopEC2();
+
             return "Couldn't connect to EC2"
 
         try:
@@ -250,3 +292,43 @@ print(is_gradio_alive("{url}"))
         else:
             self.ec2ConnectionStatus = False
         return self.ec2ConnectionStatus
+
+    # ------------------------------------------------------------------------------
+
+    def update_status_packet(self):
+        self.status_packet = StatusPacket( 
+            ec2Status = self.get_ec2_running_status(),
+            connectionStatus = self.getOpenSSHStatus(),
+            fuzzyBuddiesStatus = self.isFuzzyBuddiesRunning(),
+            voiceCloner1Status = self.getVoiceClonerStatus(self.current_ports[0]),
+            voiceCloner2Status = self.getVoiceClonerStatus(self.current_ports[1]),
+        )
+
+    def auto_refresh_status(self):
+        while self.auto_running:
+            self.update_status_packet();
+            self._handle_status_update(self.status_packet)
+            time.sleep(15)
+
+    def _handle_status_update(self, status_packet):
+        if status_packet.ec2Status == "stopped" :
+            self.startEC2();
+            return;
+        
+        if status_packet.ec2Status != "running" : # Make sure EC2 is running before doing anything else
+            return
+
+        if status_packet.connectionStatus == False:
+            self.closeSSHConnection();
+            self.openSSHConnection(5, True);
+
+        else: # We are connected
+
+            if status_packet.fuzzyBuddiesStatus == False:
+                self.restartFuzzyBuddies();
+
+    def increase_current_ports(self):
+        for i in range(len(self.current_ports)):
+            self.current_ports[i] += 2
+            if self.current_ports[i] > 8009:
+                self.current_ports[i] -= 9
