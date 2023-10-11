@@ -310,7 +310,7 @@ print(is_gradio_alive("{url}"))
         while self.auto_running:
             self.update_status_packet();
             self._handle_status_update(self.status_packet)
-            time.sleep(15)
+            time.sleep(10)
 
     def _handle_status_update(self, status_packet):
         if status_packet.ec2Status == "stopped" :
@@ -327,6 +327,9 @@ print(is_gradio_alive("{url}"))
         else: # We are connected
 
             if status_packet.fuzzyBuddiesStatus == False:
+                self.restartFuzzyBuddies();
+
+            elif status_packet.fuzzyBuddiesStatus == True and status_packet.voiceCloner1Status == False and status_packet.voiceCloner2Status == False :
                 self.restartFuzzyBuddies();
 
     def increase_current_ports(self):
