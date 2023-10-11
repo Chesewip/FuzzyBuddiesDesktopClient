@@ -42,8 +42,10 @@ class EC2Grabber:
 
     def start_auto_run(self):
         self.auto_running = True;
+        self.stopFuzzyBuddies();
         self.status_thread = threading.Thread(target=self.auto_refresh_status, daemon=True)
         self.status_thread.start()
+        
 
     def stop_auto_run(self):
         self.auto_running = False;
@@ -329,8 +331,6 @@ print(is_gradio_alive("{url}"))
             if status_packet.fuzzyBuddiesStatus == False:
                 self.restartFuzzyBuddies();
 
-            elif status_packet.fuzzyBuddiesStatus == True and status_packet.voiceCloner1Status == False and status_packet.voiceCloner2Status == False :
-                self.restartFuzzyBuddies();
 
     def increase_current_ports(self):
         for i in range(len(self.current_ports)):
