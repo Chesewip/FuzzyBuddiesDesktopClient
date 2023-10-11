@@ -149,14 +149,16 @@ class EC2Grabber:
 # -----------------------------------------------------------------------------------------
 
     def startFuzzyBuddies(self):
+        try:
+            gitcommand = 'cd /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2 && git pull origin master'
+            _, stdout, stderr = self.ssh.exec_command(gitcommand, get_pty=True)
 
-        gitcommand = 'cd /home/ubuntu/gptconvo/gptconvo/GPTConvoEC2 && git pull origin master'
-        _, stdout, stderr = self.ssh.exec_command(gitcommand, get_pty=True)
-
-        self.should_run_fuzzy_buddies = True
-        self.should_poll_ec2 = True
-        # Run the command in a new thread to avoid freezing the GUI
-        threading.Thread(target=self._start_thread).start()
+            self.should_run_fuzzy_buddies = True
+            self.should_poll_ec2 = True
+            # Run the command in a new thread to avoid freezing the GUI
+            threading.Thread(target=self._start_thread).start()
+        except:
+            "Could not start fuzzy buddies"
     
 
     def stopFuzzyBuddies(self):
