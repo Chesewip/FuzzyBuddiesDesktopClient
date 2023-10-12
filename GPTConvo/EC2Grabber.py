@@ -24,7 +24,6 @@ class EC2Grabber:
         self.keyFile = keyFile
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.openSSHConnection(0)
         self.should_run_fuzzy_buddies = False
         self.should_poll_ec2 = False
         self.current_ports = [8000,8001]
@@ -34,6 +33,7 @@ class EC2Grabber:
 
         # Getting the status of all the system/processes
         self.update_status_packet();
+        self.openSSHConnection(0)
 
     def __del__(self):
         self.stopFuzzyBuddies()
